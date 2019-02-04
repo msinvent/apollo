@@ -39,6 +39,7 @@ cc_library(
         "//modules/planning/planner/navi:navi_planner",
         "//modules/planning/planner/open_space:open_space_planner",
         "//modules/planning/planner/public_road:public_road_planner",
+        "//modules/planning/planner/public_road_manish:public_road_planner_manish",
         "//modules/planning/planner/rtk:rtk_planner",
         "//modules/planning/proto:planning_proto",
     ],

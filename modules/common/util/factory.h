@@ -111,6 +111,8 @@ class Factory {
    * @param id The identifier of the class we which to instantiate
    * @param args the object construction arguments
    */
+
+  // DEBUG_MS
   template <typename... Args>
   std::unique_ptr<AbstractProduct> CreateObject(const IdentifierType &id,
                                                 Args &&... args) {

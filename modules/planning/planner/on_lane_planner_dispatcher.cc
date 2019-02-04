@@ -45,16 +45,16 @@ std::unique_ptr<Planner> OnLanePlannerDispatcher::DispatchPlanner() {
 	//  }
 
   // DEBUG_MS
-  if(FLAGS_play_copied_public_road_planner){
-  	return planner_factory_.CreateObject(
-  	        planning_config.standard_planning_config().planner_type(3));
-  }
   if (FLAGS_open_space_planner_switchable) {
     return planner_factory_.CreateObject(
         planning_config.standard_planning_config().planner_type(1));
   }
+  if(FLAGS_play_copied_public_road_planner){
+  	return planner_factory_.CreateObject(
+  			planning_config.standard_planning_config().planner_type(2));
+  }
   return planner_factory_.CreateObject(
-      planning_config.standard_planning_config().planner_type(0));
+      	planning_config.standard_planning_config().planner_type(0));
 }
 
 }  // namespace planning
