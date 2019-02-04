@@ -37,23 +37,36 @@ using apollo::routing::RoutingRequest;
 using apollo::routing::RoutingResponse;
 
 bool PlanningComponent::Init() {
+	ADEBUG << "DEBUG_MS : Debugging the planning code";
+
+	// DEBUG_MS : loading unique_ptr of type OnLanePlanning inside planning_base_
   if (FLAGS_open_space_planner_switchable) {
     planning_base_ = std::make_unique<OpenSpacePlanning>();
+    ADEBUG << "DEBUG_MS : FLAGS_open_space_planner_switchable";
   } else {
     if (FLAGS_use_navigation_mode) {
       planning_base_ = std::make_unique<NaviPlanning>();
+      ADEBUG << "DEBUG_MS : FLAGS_use_navigation_mode";
     } else {
       planning_base_ = std::make_unique<OnLanePlanning>();
+      ADEBUG << "DEBUG_MS : On Lane Planning";
     }
   }
+
+  // DEBUG_MS : Read configs_ from /apollo/modules/planning/conf/planning_config.pb.txt
   CHECK(apollo::common::util::GetProtoFromFile(FLAGS_planning_config_file,
                                                &config_))
       << "failed to load planning config file " << FLAGS_planning_config_file;
+
+  // DEBUG_MS : initialize planning_base_ using config_
   planning_base_->Init(config_);
 
+  // DEBUG_MS : This sets the clock source on the basis of simulation mode
   if (FLAGS_use_sim_time) {
     Clock::SetMode(Clock::MOCK);
   }
+
+  // DEBUG_MS : Create a reader nodes to read "RoutingResponse" and "TrafficLightDetection" channels using Cyber RT framework
   routing_reader_ = node_->CreateReader<RoutingResponse>(
       FLAGS_routing_response_topic,
       [this](const std::shared_ptr<RoutingResponse>& routing) {
@@ -70,6 +83,8 @@ bool PlanningComponent::Init() {
         traffic_light_.CopyFrom(*traffic_light);
       });
 
+
+  // DEBUG_MS : Create reader nodes to reaad PadMessage and MapMsg if use_navigation_mode flag == true, using Cyber RT framework
   if (FLAGS_use_navigation_mode) {
     pad_message_reader_ = node_->CreateReader<PadMessage>(
         FLAGS_planning_pad_topic,
@@ -86,6 +101,8 @@ bool PlanningComponent::Init() {
           relative_map_.CopyFrom(*map_message);
         });
   }
+
+  // DEBUG_MS : create writers of "ADCTrajectory" and "RoutingRequest" using Cyber RT framework
   planning_writer_ =
       node_->CreateWriter<ADCTrajectory>(FLAGS_planning_trajectory_topic);
 
@@ -106,9 +123,10 @@ bool PlanningComponent::Proc(
   if (FLAGS_use_sim_time) {
     Clock::SetNowInSeconds(localization_estimate->header().timestamp_sec());
   }
-  // check and process possible rerouting request
+  // check and process possible re-routing request
   CheckRerouting();
 
+  // DEBUG_MS : reading all the required input channels
   // process fused input data
   local_view_.prediction_obstacles = prediction_obstacles;
   local_view_.chassis = chassis;
@@ -131,14 +149,18 @@ bool PlanningComponent::Proc(
     local_view_.relative_map = std::make_shared<MapMsg>(relative_map_);
   }
 
+  // DEBUG_MS : check if the input is not ready and fail if required
   if (!CheckInput()) {
     AERROR << "Input check failed";
     return false;
   }
 
+  // DEBUG_MS : This is the main section of code which is generating ADCTrajectory
+  // DEBUG_MS : local_vies_ is the current state of all the required inputs
   ADCTrajectory adc_trajectory_pb;
   planning_base_->RunOnce(local_view_, &adc_trajectory_pb);
   auto start_time = adc_trajectory_pb.header().timestamp_sec();
+  // timestamping and naming the node of the message
   common::util::FillHeader(node_->Name(), &adc_trajectory_pb);
 
   // modify trajectory relative time due to the timestamp change in header
@@ -162,7 +184,10 @@ void PlanningComponent::CheckRerouting() {
       std::make_shared<RoutingRequest>(rerouting->routing_request()));
 }
 
+// DEBUG_MS : If any of the data channel required to process planning cycle have not got data then
+// DEBUG_MS : publish a not ready trajectory and return false, else return true
 bool PlanningComponent::CheckInput() {
+	// Initialize a trajectory representing not ready
   ADCTrajectory trajectory_pb;
   auto* not_ready = trajectory_pb.mutable_decision()
                         ->mutable_main_decision()
@@ -188,6 +213,7 @@ bool PlanningComponent::CheckInput() {
     }
   }
 
+  // DEBUG_MS : If any of the data has not arrived write ADCTrajectory (not ready)
   if (not_ready->has_reason()) {
     AERROR << not_ready->reason() << "; skip the planning cycle.";
     common::util::FillHeader(node_->Name(), &trajectory_pb);

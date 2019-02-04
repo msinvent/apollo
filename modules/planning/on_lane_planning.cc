@@ -66,21 +66,27 @@ std::string OnLanePlanning::Name() const { return "on_lane_planning"; }
 
 Status OnLanePlanning::Init(const PlanningConfig& config) {
   config_ = config;
+  // DEBUG_MS : check planning config and return error status if false
   if (!CheckPlanningConfig(config_)) {
     return Status(ErrorCode::PLANNING_ERROR,
                   "planning config error: " + config_.DebugString());
   }
 
+  // DEBUG_MS : PlanningContext::Instance()->Init();
+  // DEBUG_MS : TaskFactory::Init(config);
   PlanningBase::Init(config_);
 
   planner_dispatcher_->Init();
 
+  // DEBUG_MS : read traffic rules from /apollo/modules/planning/conf/traffic_rule_config.pb.txt
+  // DEBUG_MS : This is a curious syntax for me
   CHECK(apollo::common::util::GetProtoFromFile(
       FLAGS_traffic_rule_config_filename, &traffic_rule_configs_))
       << "Failed to load traffic rule config file "
       << FLAGS_traffic_rule_config_filename;
 
   // clear planning status
+  // DEBUG_MS : PlanningContext is runtime Context in planning, it is persistent across multiple frames and is a singleton
   PlanningContext::MutablePlanningStatus()->Clear();
 
   // load map
@@ -92,6 +98,10 @@ Status OnLanePlanning::Init(const PlanningConfig& config) {
   reference_line_provider_->Start();
 
   // dispatch planner
+  // DEBUG_MS : this assigns planner_ to be PUBLIC_ROAD or OPEN_SPACE
+  // DEBUG_MS : depending upon FLAGS_open_space_planner_switchable
+  // DEBUG_MS : so by default our planner is of type PUBLIC_ROAD, and it switches to OPEN_SPACE
+  // DEBUG_MS : planner if FLAGS_open_space_planner_switchable flag is set to true
   planner_ = planner_dispatcher_->DispatchPlanner();
   if (!planner_) {
     return Status(
@@ -115,6 +125,7 @@ Status OnLanePlanning::InitFrame(const uint32_t sequence_num,
     return Status(ErrorCode::PLANNING_ERROR, "Fail to init frame: nullptr.");
   }
 
+  // DEBUG_MS : getting reference lines using reference_line_provider
   std::list<ReferenceLine> reference_lines;
   std::list<hdmap::RouteSegments> segments;
   if (!reference_line_provider_->GetReferenceLines(&reference_lines,
@@ -142,6 +153,7 @@ Status OnLanePlanning::InitFrame(const uint32_t sequence_num,
     }
   }
 
+  // DEBUG_MS : Frame holds all data for one planning cycle.
   auto status = frame_->Init(reference_lines, segments,
                              reference_line_provider_->FutureRouteWaypoints());
   if (!status.ok()) {
@@ -175,6 +187,9 @@ void OnLanePlanning::GenerateStopTrajectory(ADCTrajectory* trajectory_pb) {
 
 void OnLanePlanning::RunOnce(const LocalView& local_view,
                           ADCTrajectory* const trajectory_pb) {
+
+  ADEBUG << "RunOnce running again";
+
   local_view_ = local_view;
   const double start_timestamp = Clock::NowInSeconds();
 
@@ -241,6 +256,9 @@ void OnLanePlanning::RunOnce(const LocalView& local_view,
   const uint32_t frame_num = static_cast<uint32_t>(seq_num_++);
   bool update_ego_info =
       EgoInfo::Instance()->Update(stitching_trajectory.back(), vehicle_state);
+
+  // DEBUG_MS : Initialize the frame with data from the input
+  // DEBUG_MS : frame saves all the data for 1 planning cycle
   status = InitFrame(frame_num, stitching_trajectory.back(), start_timestamp,
                      vehicle_state, trajectory_pb);
 
@@ -283,8 +301,13 @@ void OnLanePlanning::RunOnce(const LocalView& local_view,
     return;
   }
 
+  // DEBUG_MS : Seems like this section of the code is verifying the drivability of the reference line
+  // DEBUG_MS : IDK why we are initializing traffic_decider with trafic_rule_config again and again
+  // DEBUG_MS : Are the rules changing ?
   for (auto& ref_line_info : *frame_->mutable_reference_line_info()) {
     TrafficDecider traffic_decider;
+    // DEBUG_MS : BACKSIDE_VEHICLE, CHANGE_LANE, CROSSWALK, DESTINATION, KEEP_CLEAR, PULL_OVER, REFERENCE_LINE_END
+    // DEBUG_MS : REROUTING, SIGNAL_LIGHT
     traffic_decider.Init(traffic_rule_configs_);
     auto traffic_status = traffic_decider.Execute(frame_.get(), &ref_line_info);
     if (!traffic_status.ok() || !ref_line_info.IsDrivable()) {
@@ -295,9 +318,11 @@ void OnLanePlanning::RunOnce(const LocalView& local_view,
     }
   }
 
+  // DEBUG_MS : calling Plan function
   status = Plan(start_timestamp, stitching_trajectory, trajectory_pb);
 
   for (const auto& p : trajectory_pb->trajectory_point()) {
+  	ADEBUG << "DEBUG_MS : p.DebugString() "<<p.DebugString();
     ADEBUG << p.DebugString();
   }
   const auto time_diff_ms = (Clock::NowInSeconds() - start_timestamp) * 1000;
@@ -313,6 +338,7 @@ void OnLanePlanning::RunOnce(const LocalView& local_view,
                              1000.0);
   ref_line_task->set_name("ReferenceLineProvider");
 
+  // DEBUG_MS : verifying if plan cycle was successful or send EStop
   if (!status.ok()) {
     status.Save(trajectory_pb->mutable_header()->mutable_status());
     AERROR << "Planning failed:" << status.ToString();
@@ -372,6 +398,7 @@ Status OnLanePlanning::Plan(
         stitching_trajectory.back());
   }
 
+  // DEBUG_MS : Frame holds all data for one planning cycle
   auto status = planner_->Plan(stitching_trajectory.back(), frame_.get());
 
   ptr_debug->mutable_planning_data()->set_front_clear_distance(

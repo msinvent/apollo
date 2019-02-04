@@ -225,6 +225,7 @@ DECLARE_double(open_space_prediction_time_horizon);
 DECLARE_bool(enable_perception_obstacles);
 DECLARE_bool(enable_open_space_planner_thread);
 DECLARE_bool(open_space_planner_switchable);
+DECLARE_bool(play_copied_public_road_planner);
 DECLARE_bool(use_dual_variable_warm_start);
 DECLARE_bool(use_gear_shift_trajectory);
 

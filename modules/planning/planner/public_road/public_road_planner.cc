@@ -32,6 +32,19 @@ Status PublicRoadPlanner::Init(const PlanningConfig& config) {
   const auto& public_road_config =
       config_.standard_planning_config().planner_public_road_config();
 
+  // DEBUG_MS : The three scenario_type in sequence is : LANE_FOLLOW, SIDE_PASS, STOP_SIGN_PROTECTED
+  // DEBUG_MS : scenario_manager.pb.txt
+	//  standard_planning_config {
+	//    planner_type: PUBLIC_ROAD
+	//    planner_type: OPEN_SPACE
+	//    planner_public_road_config {
+	//       scenario_type: LANE_FOLLOW
+	//       scenario_type: SIDE_PASS
+	//       scenario_type: STOP_SIGN_UNPROTECTED
+	//    }
+	//  }
+
+
   for (int i = 0; i < public_road_config.scenario_type_size(); ++i) {
     const ScenarioConfig::ScenarioType scenario =
         public_road_config.scenario_type(i);
@@ -44,6 +57,7 @@ Status PublicRoadPlanner::Init(const PlanningConfig& config) {
 
 Status PublicRoadPlanner::Plan(const TrajectoryPoint& planning_start_point,
                                Frame* frame) {
+	ADEBUG << "DEBUG_MS : Calling Original PublicRoadPlanner";
   DCHECK_NOTNULL(frame);
   scenario_manager_.Update(planning_start_point, *frame);
   scenario_ = scenario_manager_.mutable_scenario();

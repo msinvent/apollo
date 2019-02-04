@@ -24,8 +24,31 @@ namespace planning {
 
 std::unique_ptr<Planner> OnLanePlannerDispatcher::DispatchPlanner() {
   PlanningConfig planning_config;
+  ADEBUG << "DEBUG_MS : DispatchPlanner <<"<<FLAGS_planning_config_file<<","
+  		<<FLAGS_open_space_planner_switchable;
   apollo::common::util::GetProtoFromFile(FLAGS_planning_config_file,
                                          &planning_config);
+  // DEBUG_MS : if this is set to true true std planning switch to open space planner
+  // DEBUG_MS : when close enough to target parking spot
+
+  // We are accessing planning_config.pb.txt
+	// DEBUG_MS : planner_type(1) == PUBLIC_ROAD
+	// DEBUG_MS : planner_type(2) == OPEN_SPACE
+	//  standard_planning_config {
+	//    planner_type: PUBLIC_ROAD
+	//    planner_type: OPEN_SPACE
+	//    planner_public_road_config {
+	//       scenario_type: LANE_FOLLOW
+	//       scenario_type: SIDE_PASS
+	//       scenario_type: STOP_SIGN_UNPROTECTED
+	//    }
+	//  }
+
+  // DEBUG_MS
+  if(FLAGS_play_copied_public_road_planner){
+  	return planner_factory_.CreateObject(
+  	        planning_config.standard_planning_config().planner_type(3));
+  }
   if (FLAGS_open_space_planner_switchable) {
     return planner_factory_.CreateObject(
         planning_config.standard_planning_config().planner_type(1));

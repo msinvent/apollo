@@ -433,6 +433,9 @@ DEFINE_bool(open_space_planner_switchable, false,
             "true for std planning being able to switch to open space planner "
             "when close enough to target parking spot");
 
+DEFINE_bool(play_copied_public_road_planner, true,
+            "true for std planning being able to switch to copy of public road planner.");
+
 DEFINE_bool(use_dual_variable_warm_start, true,
             "whether or not enable dual variable warm start ");
 
